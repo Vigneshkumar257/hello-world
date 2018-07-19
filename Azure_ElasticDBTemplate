@@ -1,0 +1,104 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+	"application": { "type": "string" },
+    	"environmentName": { "type": "string" },
+    	"sqlDatabaseCollation": { "type": "string" },
+    	"sqlDatabaseEdition": { "type": "string" },
+    	"sqlDatabaseMaxSizeBytes": { "type": "string" },
+    	"sqlDatabaseName": { "type": "string" },
+    	"sqlDatabaseRequestedServiceObjectiveName": { "type": "string" },
+    	"sqlServerAdministratorLoginName": { "type": "string" },
+    	"sqlServerAdministratorLoginPassword": { "type": "securestring" },
+    	"sqlServerLocation": { "type": "string" },
+    	"sqlServerName": { "type": "string" },
+	"supportTeam": { "type": "string" }
+	"sqlElasticPoolName": { "type": "string" },
+	"sqlElasticPoolDtu": { "type": "int" },
+	"sqlDatabaseDtuMin": { "type": "int" },
+	"sqlDatabaseDtuMax": { "type": "int" },
+	},
+	"variables": {},
+	"resources": [
+		{		
+		"type": "Microsoft.Sql/servers"
+		"apiVersion": "2014-04-01-preview",
+		"name": "[parameters('sqlServerName')]",
+		"location": "[parameters('sqlServerLocation')]",
+		"tags": {
+		   "application": "[parameters('application')]",
+		   "displayName": "SQL Server",
+		   "supportTeam": "[parameters('supportTeam')]",
+		   "environment": "[parameters('environmentName')]"
+		   },
+		   "properties": {
+		       "administratorLogin": "[parameters('sqlServerAdministratorLoginName')]",
+		       "administratorLoginPassword": "[parameters('sqlServerAdministratorLoginPassword')]",
+		       "version": "12.0"
+		       },
+		   "resources": [ 
+		{
+			"type": "Microsoft.Sql/servers/elasticpools"
+			"apiVersion": "2014-04-01-preview",
+			"location": "[parameters('sqlServerLocation')]",
+			"name": "[concat(parameters('SqlserverName'), '/', parameters('sqlElasticPoolName'))]",
+			},
+			"dependsOn": [
+		        "[concat('Microsoft.Sql/servers/', parameters('SqlserverName'))]"
+			],
+			"properties": {
+			  "edition": "[parameters('sqlDatabaseEdition')]",
+			  "dtu": "[parameters('sqlElasticPoolDtu')]",
+			  "databaseDtuMin": "[parameters('sqlDatabaseDtuMin')]",
+			  "databaseDtuMax": "[parameters('sqlDatabaseDtuMax')]"
+			  }
+			},
+			{
+			"type": "Microsoft.Sql/servers/databases",
+			"name": "[concat(parameters('sqlserverName'), '/', parameters('sqlDatabaseName')[copyIndex()])]",
+			"location": "[parameters('sqlServerLocation')]",
+			"apiVersion": "2014-04-01-preview",
+			"dependsOn": [
+			    "[concat('Microsoft.Sql/servers/', parameters('sqlserverName'))]",
+			    "[concat('Microsoft.Sql/servers/', parameters('sqlserverName') ,'/elasticpools/', parameters('sqlElasticPoolName'))]"
+			    ],
+			    "properties": {
+			    "edition": "[parameters('sqlDatabaseEdition')]",
+			    "collation": "[parameters('sqlDatabaseCollation')]",
+			    "requestedServiceObjectiveName": "ElasticPool",
+			    "elasticPoolName": "[parameters('sqlElasticPoolName')]"
+			    },
+			    "copy": {
+			         "name": "addDatabasesInElasticPool",
+				 "count": "[length(parameters('sqlDatabaseName'))]"
+				 	}
+				 },
+				 {
+          			"type": "firewallrules",
+          			"name": "AllowAllWindowsAzureIps",
+          			"location": "[resourceGroup().location]",
+          			"apiVersion": "2014-04-01-preview",
+          			"dependsOn": [
+            			"[concat('Microsoft.Sql/servers/', parameters('sqlServerName'))]"
+          			],
+          			"properties": {
+            			"endIpAddress": "0.0.0.0",
+            			"startIpAddress": "0.0.0.0"
+          				}
+        			},
+        			{
+          			"type": "firewallrules",
+          			"name": "OnPrem",
+          			"location": "[resourceGroup().location]",
+          			"apiVersion": "2014-04-01-preview",
+          			"dependsOn": [
+            			"[concat('Microsoft.Sql/servers/', parameters('sqlServerName'))]"
+          			],
+          			"properties": {
+            			"endIpAddress": "159.108.255.255",
+            			"startIpAddress": "159.108.0.0"
+          			}
+        		}
+		]
+		
